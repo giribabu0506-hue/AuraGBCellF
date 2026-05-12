@@ -1,0 +1,207 @@
+# AuraGB Keypad Cellphone Backend
+
+package AuraGBPhone
+
+import gpio
+import display
+import serial
+import storage
+import battery
+import audio
+
+var number = ""
+var batteryLevel = "85%"
+var currentScreen = "HOME"
+
+function boot(){
+
+    display.clear()
+
+    display.text("AuraGB Phone")
+
+    display.text("Booting...")
+
+    wait(2)
+
+    homeScreen()
+
+}
+
+function homeScreen(){
+
+    currentScreen = "HOME"
+
+    display.clear()
+
+    display.text("AuraGB Phone")
+
+    display.text("1.Dialer")
+
+    display.text("2.Messages")
+
+    display.text("3.Contacts")
+
+    display.text("Battery: " + batteryLevel)
+
+}
+
+function openDialer(){
+
+    currentScreen = "DIALER"
+
+    number = ""
+
+    display.clear()
+
+    display.text("Dial Number")
+
+    display.text(number)
+
+}
+
+function keypadLoop(){
+
+    loop{
+
+        var key = gpio.key()
+
+        if key != null {
+
+            handleKey(key)
+
+        }
+
+    }
+
+}
+
+function handleKey(key){
+
+    if currentScreen == "HOME" {
+
+        if key == "1" {
+
+            openDialer()
+
+        }
+
+    }
+
+    else if currentScreen == "DIALER" {
+
+        if key == "#" {
+
+            callNumber(number)
+
+        }
+
+        else if key == "*" {
+
+            deleteLast()
+
+        }
+
+        else {
+
+            number = number + key
+
+            displayNumber()
+
+        }
+
+    }
+
+}
+
+function displayNumber(){
+
+    display.clear()
+
+    display.text("Dial Number")
+
+    display.text(number)
+
+    display.text("# = Call")
+
+    display.text("* = Delete")
+
+}
+
+function deleteLast(){
+
+    number = number.slice(0,length(number)-1)
+
+    displayNumber()
+
+}
+
+function callNumber(num){
+
+    display.clear()
+
+    display.text("Calling")
+
+    display.text(num)
+
+    serial.send("ATD" + num + ";")
+
+}
+
+function endCall(){
+
+    serial.send("ATH")
+
+    display.text("Call Ended")
+
+    wait(1)
+
+    homeScreen()
+
+}
+
+function sendSMS(num,msg){
+
+    serial.send("AT+CMGF=1")
+
+    serial.send('AT+CMGS="' + num + '"')
+
+    serial.send(msg)
+
+    serial.send(char(26))
+
+}
+
+function saveContact(name,num){
+
+    storage.insert("contacts",{
+
+        "name":name,
+        "number":num
+
+    })
+
+}
+
+function readBattery(){
+
+    batteryLevel = battery.level()
+
+}
+
+function startupServices(){
+
+    gpio.start()
+
+    display.start()
+
+    serial.open("/dev/ttyUSB0",9600)
+
+    storage.open("contacts.db")
+
+}
+
+startupServices()
+
+boot()
+
+keypadLoop()
